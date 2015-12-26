@@ -12,7 +12,7 @@ window.onload = function() {
 	url_on = '%s';
 	url_off = '%s';
 	id = 'light';
-	delay = 50;
+	delay = 200;
 
 	var image = document.createElement("img");
 	image.id = "id";
