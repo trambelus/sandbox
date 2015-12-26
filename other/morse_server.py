@@ -30,12 +30,13 @@ window.onload = function() {
 		sequence = sequence + character;
 	}
 
-	display = function(index) {
-		image.src = sequence[index] == '0' ? url_off : url_on;
-		index = (index + 1) %% sequence.length;
-		setTimeout(display, [delay, index])
+	idx = 0;
+	display = function() {
+		image.src = sequence[idx] == '0' ? url_off : url_on;
+		idx = (idx + 1) %% sequence.length;
+		setTimeout(display, [delay])
 	}
-	display(0);
+	display();
 }
 </script>
 """
