@@ -113,9 +113,9 @@ def process(level, dice, quick=False):
 	if not quick:
 		dperms = list(permutations(dice))
 		operms = list(combinations(ops, len(dice)-1))
-		print("len(operms) = {}".format(len(operms)))
 		print()
-		print("len(dperms) = {}".format(len(dperms)))
+		#print("len(operms) = {}".format(len(operms)))
+		#print("len(dperms) = {}".format(len(dperms)))
 
 		print("Targets: {0}".format(", ".join(map(str, targets))))
 		print("Iterating through {0} permutations\n".format(len(dperms)*len(operms)))
@@ -150,7 +150,7 @@ def main():
 	level = int(input("Spell level? > "))
 	dice = list(map(int, input("Dice? > ").split(' ')))
 
-	print(process(level, dice, quick=False))
+	process(level, dice, quick=False)
 
 if __name__ == '__main__':
 	main()
