@@ -6,29 +6,30 @@ from sg import process
 import sqlite3
 from pprint import pprint
 
-MIN_DICE = 2
+MIN_DICE = 5
 MAX_DICE = 8
 
-MAX_DIE = 6
+MAX_DIE = 8
 
 def wait(stop):
-	if input() == 'q':
+	#if input() == 'q':
 		stop[0] = True
 
 def init_db():
 	db = sqlite3.connect('sgm.db3')
-	db.execute("""CREATE TABLE IF NOT EXISTS d6 (
+	db.execute("""CREATE TABLE IF NOT EXISTS d8 (
 		id TEXT PRIMARY KEY UNIQUE,
 		result DOUBLE,
 		num_tests INT
 	);""")
-	return db
+	db.commit()
+	db.close()
 
 def save(results):
 	db = sqlite3.connect('sgm.db3')
 	for level in range(len(results)):
 		for num_dice in range(len(results[0])):
-			db.execute("REPLACE INTO d6 (id, result, num_tests) VALUES (?,?,?)",
+			db.execute("REPLACE INTO d8 (id, result, num_tests) VALUES (?,?,?)",
 				("{};{}".format(level+1, num_dice+MIN_DICE), results[level][num_dice][0], results[level][num_dice][1]))
 
 	db.commit()
@@ -55,8 +56,8 @@ def main():
 				res = process(level, dice, quick=True)
 
 				#print(results)
-				current = results[level-1][num_dice-2][0]
-				num_tests = results[level-1][num_dice-2][1]
+				current = results[level-1][num_dice-MIN_DICE][0]
+				num_tests = results[level-1][num_dice-MIN_DICE][1]
 
 				if num_tests == 0:
 					results[level-1][num_dice-MIN_DICE] = [100*float(res), 1]
@@ -64,7 +65,7 @@ def main():
 					results[level-1][num_dice-MIN_DICE][0] = (num_tests*current + 100*float(res)) / (num_tests + 1)
 					results[level-1][num_dice-MIN_DICE][1] = num_tests + 1
 
-		#pprint(results)
+		pprint(results)
 		save(results)
 
 if __name__ == '__main__':
