@@ -1,10 +1,29 @@
 #!/usr/bin/env python3
 
-# TODO: argparse, dice roll within script
-
+import argparse
 from itertools import permutations, product
 import multiprocessing as mp
 import time
+import random
+
+def parse_args():
+	parser = argparse.ArgumentParser(description="Given a target spell level and set of die numbers," +
+		" returns a way to combine those numbers (with +, -, *, and /) in a way that'll hit" +
+		" the target number. Numbers game, basically.\nCan optionally roll the dice itself.")
+	parser.add_argument("-a", "--all", required=False, action='store_true', default=False,
+		help="Instead of stopping after finding one solution, find all. This might take a while.")
+	parser.add_argument("-l", "--level", required=False, type=int,
+		help="Option to enter target spell level at command line instead of at runtime.")
+	parser.add_argument("-d", "--dice", required=False, type=int, nargs='+',
+		help="Option to enter dice rolls at command line instead of at runtime. Cannot be used with -r.")
+	parser.add_argument("-r", "--roll", required=False, type=str, 
+		help="Instead of prompting for dice, roll a set of dice randomly and use that. " +
+		"Assumes d6 if not specified. Cannot be used with -d.")
+	args = parser.parse_args()
+
+	if args.roll and args.dice:
+		parser.error("Cannot use -d and -r options together.")
+	return args
 
 # modification of itertools combinations: unordered and with repeats
 def combinations(iterable, r):
@@ -38,8 +57,9 @@ def primes(level, limit=3):
 	p3 = [primes[i:i+limit] for i in range(0, len(primes), limit)]
 	return p3[level-1]
 
-# it's a lot quicker to use precomputed primes, and speed is of the essence
-qprimes = [[3, 5, 7], [11, 13, 17], [19, 23, 29], [31, 37, 41], [43, 47, 53], [59, 61, 67], [71, 73, 79], [83, 89, 97], [101, 103, 107]]
+# it's a lot faster to use precomputed primes, and speed is of the essence
+qprimes = [[3, 5, 7], [11, 13, 17], [19, 23, 29], [31, 37, 41],
+	[43, 47, 53], [59, 61, 67], [71, 73, 79], [83, 89, 97], [101, 103, 107]]
 
 # operations function: defines all the possible ops
 def opf(i,x,y):
@@ -63,9 +83,9 @@ def opf(i,x,y):
 #  index: ID of this worker process
 #  index_total: total number of worker processes
 #  pc: interprocess counter (used to signal a hit for stopping)
-#  quick: True if we're doing stats analysis and False for standalone
-# (I should probably rename "quick" to "single")
-def process_multi(dice, targets, index, index_total, pc, quick):
+#  single: True if we want to stop after finding just one
+#  silent: True if we don't want to display the results we find
+def process_multi(dice, targets, index, index_total, pc, single, silent):
 
 	dperms = list(permutations(dice)) # use every die exactly once
 	operms = list(combinations(ops, len(dice)-1)) # any combination of operations
@@ -77,8 +97,8 @@ def process_multi(dice, targets, index, index_total, pc, quick):
 			if (idp*oplen+iop)%index_total != index:
 				continue # another thread has got this one
 
-			if quick and pc.value:
-				return # we've found one, and one is enough when we're in quick mode, so exit
+			if single and pc.value:
+				return # we've found one, and one is enough when we're in single mode, so exit
 
 			dp = dperms[idp]
 			op = operms[iop]
@@ -92,25 +112,25 @@ def process_multi(dice, targets, index, index_total, pc, quick):
 
 			if num in targets:
 				# We found it
-				if not quick:
+				if not silent:
 					# if in standalone mode: build and display the string of this result
 					s = op[0][1].format(dp[0], dp[1])
 					for i in range(2,len(dp)):
 						s = op[i-1][1].format("({0})".format(s),dp[i])
 					print("{0} = {1:d}".format(s, int(num)))
 
-				# update counter: in quick mode, signals other processes to stop
+				# update counter: in single mode, signals other processes to stop
 				pc.value = pc.value + 1
 
 # top-level processing method
 #  level: target spell level
 #  dice: dice roll result
-#  quick: described above
-def process(level, dice, quick=False):
+#  single: described above
+def process(level, dice, single, silent):
 
 	targets = qprimes[level-1] # get the prime 3-tuple for this level
 
-	if not quick:
+	if not silent and not single:
 		dperms = list(permutations(dice))
 		operms = list(combinations(ops, len(dice)-1))
 		print()
@@ -126,19 +146,21 @@ def process(level, dice, quick=False):
 	num_proc = mp.cpu_count() # total number of processes to spawn
 	processes = []
 	for i in range(num_proc):
-		processes.append(mp.Process(target=process_multi, args=(dice, targets, i, num_proc, pc, quick)))
+		processes.append(mp.Process(target=process_multi, args=(dice, targets, i, num_proc, pc, single, silent)))
 		processes[-1].start()
 
 	while any([process.is_alive() for process in processes]):
-		if not quick:
+		if not single:
 			time.sleep(1)
 		else:
 			time.sleep(0.1)
-		if quick and pc.value:
+		if single and pc.value:
 			break
 
-	if not quick:
+	if not silent and not single:
 		print("\nWorking combinations: {0}".format(pc.value))
+	elif pc.value == 0:
+		print("\nNo combinations found")
 
 	return pc.value != 0 # True if something was found, otherwise False
 
@@ -147,10 +169,34 @@ def process(level, dice, quick=False):
 # Note: you have to 
 def main():
 	print()
-	level = int(input("Spell level? > "))
-	dice = list(map(int, input("Dice? > ").split(' ')))
 
-	process(level, dice, quick=False)
+	args = parse_args()
+
+	if args.level:
+		level = args.level
+		print("Target level {0}: targets {1}\n".format(level, qprimes[level-1]))
+	else:
+		level = int(input("Spell level? > "))
+		print("Targets: {0}\n".format(qprimes[level-1]))
+
+	if args.dice:
+		dice = args.dice
+	else:
+		if args.roll:
+			roll = args.roll.split('d')
+			if len(roll) == 2:
+				d = int(roll[1])
+			else:
+				d = 6
+			n = int(roll[0])
+			dice = [random.randint(1,d) for i in range(n)]
+			print("Rolled {0}d{1}: got {2}".format(n, d, dice))
+		else:
+			dice = list(map(int, input("Dice? > ").split(' ')))
+
+	single = not args.all
+
+	process(level, dice, single=single, silent=False)
 
 if __name__ == '__main__':
 	main()

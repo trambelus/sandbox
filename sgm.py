@@ -6,10 +6,10 @@ from sg import process
 import sqlite3
 from pprint import pprint
 
-MIN_DICE = 5
+MIN_DICE = 2
 MAX_DICE = 8
 
-MAX_DIE = 8
+MAX_DIE = 6
 
 def wait(stop):
 	#if input() == 'q':
@@ -17,7 +17,7 @@ def wait(stop):
 
 def init_db():
 	db = sqlite3.connect('sgm.db3')
-	db.execute("""CREATE TABLE IF NOT EXISTS d8 (
+	db.execute("""CREATE TABLE IF NOT EXISTS d6 (
 		id TEXT PRIMARY KEY UNIQUE,
 		result DOUBLE,
 		num_tests INT
@@ -29,7 +29,7 @@ def save(results):
 	db = sqlite3.connect('sgm.db3')
 	for level in range(len(results)):
 		for num_dice in range(len(results[0])):
-			db.execute("REPLACE INTO d8 (id, result, num_tests) VALUES (?,?,?)",
+			db.execute("REPLACE INTO d6 (id, result, num_tests) VALUES (?,?,?)",
 				("{};{}".format(level+1, num_dice+MIN_DICE), results[level][num_dice][0], results[level][num_dice][1]))
 
 	db.commit()
@@ -53,7 +53,7 @@ def main():
 			for num_dice in range(MIN_DICE, MAX_DICE+1):
 				#print("num_dice = {}".format(num_dice))
 				dice = roll(num_dice, MAX_DIE)
-				res = process(level, dice, quick=True)
+				res = process(level, dice, single=True, silent=True)
 
 				#print(results)
 				current = results[level-1][num_dice-MIN_DICE][0]
